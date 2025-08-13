@@ -1,0 +1,57 @@
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /source
+
+# Copy solution and project files
+COPY *.sln .
+COPY mcp.server/*.csproj mcp.server/
+COPY mcp.tools/*.csproj mcp.tools/
+COPY mcp.client/*.csproj mcp.client/
+
+# Restore dependencies
+RUN dotnet restore
+
+# Copy source code
+COPY mcp.server/ mcp.server/
+COPY mcp.tools/ mcp.tools/
+
+# Build and publish the server project
+WORKDIR /source/mcp.server
+RUN dotnet publish -c Release -o /app --no-restore
+
+# Runtime stage  
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+WORKDIR /app
+
+# Install Python and MCP proxy
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --break-system-packages mcpo uv
+
+# Copy built application from build stage
+COPY --from=build /app ./mcp-server/
+
+# Create MCPO configuration file with correct format
+RUN echo '{\n\
+  "mcpServers": {\n\
+    "file-tools": {\n\
+      "name": "MCP File Tools Server",\n\
+      "version": "1.0.0",\n\
+      "description": "File system and development tools for MCP",\n\
+      "type": "stdio",\n\
+      "command": "dotnet",\n\
+      "args": ["/app/mcp-server/mcp.server.dll"]\n\
+    }\n\
+  }\n\
+}' > /app/mcpo-config.json
+
+# Expose the port MCPO will use
+EXPOSE 8000
+
+# Start MCPO with configuration
+CMD ["mcpo", "--config", "/app/mcpo-config.json", "--host", "0.0.0.0", "--port", "8000"]
