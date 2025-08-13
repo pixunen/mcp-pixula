@@ -23,7 +23,7 @@ RUN dotnet publish -c Release -o /app --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 
-# Install Python and MCP proxy
+# Install Python and UV (modern Python package installer)
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
@@ -31,27 +31,14 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --break-system-packages mcpo uv
+# Install UV (modern, fast Python package installer)
+RUN pip3 install --break-system-packages uv
 
-# Copy built application from build stage
-COPY --from=build /app ./mcp-server/
-
-# Create MCPO configuration file with correct format
-RUN echo '{\n\
-  "mcpServers": {\n\
-    "file-tools": {\n\
-      "name": "MCP File Tools Server",\n\
-      "version": "1.0.0",\n\
-      "description": "File system and development tools for MCP",\n\
-      "type": "stdio",\n\
-      "command": "dotnet",\n\
-      "args": ["/app/mcp-server/mcp.server.dll"]\n\
-    }\n\
-  }\n\
-}' > /app/mcpo-config.json
+# Copy built application from build stage to match expected path structure
+COPY --from=build /app ./mcp.server/bin/Release/net9.0/
 
 # Expose the port MCPO will use
 EXPOSE 8000
 
-# Start MCPO with configuration
-CMD ["mcpo", "--config", "/app/mcpo-config.json", "--host", "0.0.0.0", "--port", "8000"]
+# Use uvx to run mcpo (best practice) with the correct path
+CMD ["uvx", "mcpo", "--port", "8000", "--", "dotnet", "/app/mcp.server/bin/Release/net9.0/mcp.server.dll"]

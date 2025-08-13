@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mcp-proxy:
     build:
@@ -8,19 +6,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MCPO_HOST=0.0.0.0
-      - MCPO_PORT=8000
       - DOTNET_ENVIRONMENT=Production
     networks:
       - webui-network
     restart: unless-stopped
 
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:cuda
     ports:
       - "3000:8080"
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - WEBUI_AUTH=False
       # Configure OpenWebUI to connect to your MCP proxy
       - MCP_SERVERS='[{"name":"file-tools","url":"http://mcp-proxy:8000","description":"File system and development tools"}]'
     volumes:
@@ -30,6 +27,13 @@ services:
     depends_on:
       - mcp-proxy
     restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
 networks:
   webui-network:
