@@ -14,18 +14,25 @@ MCP-Pixula is a local MCP sandbox that provides AI assistants with powerful deve
 
 **Hybrid Deployment** - MCP server runs on your host machine (for full file system access) with Open WebUI in Docker. This gives you the best of both worlds - full system access for MCP tools and easy deployment for the web interface.
 
+### Why Hybrid?
+
+- ✅ **Full Host Access**: MCP server can read/write files and execute commands on your actual machine
+- ✅ **Easy Deployment**: Open WebUI remains containerized for simple setup  
+- ✅ **Best of Both Worlds**: Security isolation for the web UI, full power for the MCP tools
+- ✅ **No Permission Issues**: No need to mount volumes or deal with container isolation
+
+### Start Everything
+
 ```cmd
-# Windows
+# Windows - Start all services
 .\start-hybrid.bat start
 
-# Check status
+# Check status of all services
 .\start-hybrid.bat status
 
 # Stop services
 .\start-hybrid.bat stop
 ```
-
-See [HYBRID_README.md](HYBRID_README.md) for detailed setup instructions.
 
 ## 📋 Alternative Deployment Options
 
@@ -60,7 +67,6 @@ mcp-pixula/
 ├── start-hybrid.bat        # Windows hybrid deployment script
 ├── start-mcp-host.bat      # Manual MCP server startup script
 ├── docker-compose.hybrid.yml # Hybrid Docker compose (Open WebUI only)
-├── HYBRID_README.md        # Detailed hybrid deployment documentation
 └── mcp.sln                # Solution file
 ```
 
@@ -129,7 +135,7 @@ mcp-pixula/
 - .NET 9.0 SDK
 - Python 3.8+ (for mcpo)
 - Docker Desktop (for containerized/hybrid deployments)
-- Ollama (optional, for AI integration)
+- **Ollama** (for AI model integration - automatically managed by the script)
 
 ### Installation & Setup
 
@@ -153,28 +159,62 @@ mcp-pixula/
 ### Access Points
 
 Once running, you can access:
-- **Open WebUI**: http://localhost:3000
+- **Open WebUI**: http://localhost:3000 (with Ollama AI models)
 - **MCP API Docs**: http://localhost:8000/docs
-- **MCP Health Check**: http://localhost:8000/health
+- **Ollama API**: http://localhost:11434 (AI model server)
 
 ## 🏗️ Architecture
 
-### MCP Server (`mcp.server`)
+### System Overview
 
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Host Machine                          │
+│                                                          │
+│  ┌──────────────────────────────────────┐               │
+│  │   Ollama Server (Port 11434)         │               │
+│  │   - AI model hosting                 │               │
+│  │   - Local LLM inference              │               │
+│  │   - GPU acceleration                 │               │
+│  └──────────────────────────────────────┘               │
+│                      ↑                                   │
+│                      │ http://host.docker.internal:11434 │
+│  ┌──────────────────────────────────────┐               │
+│  │   MCP Server (Port 8000)             │               │
+│  │   - Full file system access          │               │
+│  │   - Can execute host commands        │               │
+│  │   - Git operations                   │               │
+│  │   - Build/test/lint tools            │               │
+│  └──────────────────────────────────────┘               │
+│                      ↑                                   │
+│                      │ http://host.docker.internal:8000  │
+│  ┌──────────────────────────────────────┐               │
+│  │   Docker Container                   │               │
+│  │   ┌────────────────────────────┐     │               │
+│  │   │  Open WebUI (Port 3000)    │     │               │
+│  │   │  - Web interface           │     │               │
+│  │   │  - Connects to MCP & Ollama│     │               │
+│  │   │  - Chat with AI + tools    │     │               │
+│  │   └────────────────────────────┘     │               │
+│  └──────────────────────────────────────┘               │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Component Details
+
+**MCP Server (`mcp.server`)**
 - Built on Microsoft's MCP implementation
 - Uses stdio transport for communication
 - Automatically discovers and registers all tools from the `mcp.tools` assembly
 - Provides structured logging and error handling
 
-### MCP Client (`mcp.client`)
-
+**MCP Client (`mcp.client`)**
 - Interactive console client with rich UI using Spectre.Console
 - Integrates with Ollama for AI-powered interactions
 - Supports streaming responses with visual feedback
 - Automatically discovers and utilizes all available MCP tools
 
-### Tools Library (`mcp.tools`)
-
+**Tools Library (`mcp.tools`)**
 - Modular design with tools organized by functionality
 - Each tool class focuses on a specific domain (Git, Files, Process, etc.)
 - Comprehensive error handling and validation
@@ -242,7 +282,13 @@ The server automatically discovers tools from the `mcp.tools` assembly. To add n
 
 ### Using with Open WebUI
 
-The hybrid deployment automatically configures Open WebUI to connect to the MCP server. Simply navigate to http://localhost:3000 after starting the services.
+The hybrid deployment automatically configures Open WebUI to connect to both the MCP server and Ollama. Simply navigate to http://localhost:3000 after starting the services.
+
+**Ollama Integration:**
+- Open WebUI automatically connects to Ollama at http://localhost:11434
+- The script checks and starts Ollama if needed
+- Models available: Use any models you've installed with `ollama pull <model>`
+- Example: `ollama pull llama3.2` to install Llama 3.2
 
 ### Example Prompts
 
@@ -252,6 +298,53 @@ The hybrid deployment automatically configures Open WebUI to connect to the MCP 
 - "Get project statistics and show me the largest files"
 - "Run the tests and lint the code"
 - "Find all configuration files and backup the main app settings"
+
+## 🔧 Troubleshooting
+
+### MCP Server Issues
+
+```cmd
+# Check if MCP is running
+.\start-hybrid.bat status
+
+# Test MCP directly
+curl http://localhost:8000/docs
+
+# Check if port 8000 is in use
+netstat -ano | findstr :8000
+```
+
+### Open WebUI Can't Connect to MCP
+
+```cmd
+# Verify host.docker.internal resolves from container
+docker run --rm alpine ping -c 2 host.docker.internal
+
+# Check MCP is accessible from container
+docker run --rm curlimages/curl curl http://host.docker.internal:8000/docs
+```
+
+### Ollama Issues
+
+```cmd
+# Check Ollama status
+ollama ps
+
+# Start Ollama manually if needed
+ollama serve
+
+# Install a model if none available
+ollama pull llama3.2
+```
+
+### Port Conflicts
+
+```cmd
+# Find what's using specific ports
+netstat -ano | findstr :8000   # MCP Server
+netstat -ano | findstr :3000   # Open WebUI  
+netstat -ano | findstr :11434  # Ollama
+```
 
 ## 🚨 Security Considerations
 
