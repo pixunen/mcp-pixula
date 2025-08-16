@@ -400,3 +400,13 @@ FodyWeavers.xsd
 *.sln.iml
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp
+
+# MCP Server Hybrid Runtime Files
+mcp-server.log
+mcp-server.pid
+nohup.out
+
+# Environment files
+.env
+.env.local
+.env.production

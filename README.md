@@ -10,24 +10,58 @@ MCP-Pixula is a local MCP sandbox that provides AI assistants with powerful deve
 - **MCP Client**: Interactive console client for testing and using the tools
 - **MCP Tools Library**: Collection of development-focused tools
 
+## 🚀 Quick Start
+
+**Hybrid Deployment** - MCP server runs on your host machine (for full file system access) with Open WebUI in Docker. This gives you the best of both worlds - full system access for MCP tools and easy deployment for the web interface.
+
+```cmd
+# Windows
+.\start-hybrid.bat start
+
+# Check status
+.\start-hybrid.bat status
+
+# Stop services
+.\start-hybrid.bat stop
+```
+
+See [HYBRID_README.md](HYBRID_README.md) for detailed setup instructions.
+
+## 📋 Alternative Deployment Options
+
+### **Manual/Native**
+Run everything manually without the batch script:
+
+```bash
+# Terminal 1: MCP Server
+uvx mcpo --port 8000 -- dotnet "mcp.server/bin/Release/net9.0/mcp.server.dll"
+
+# Terminal 2: Open WebUI (optional)
+docker-compose -f docker-compose.hybrid.yml up -d
+```
+
 ## 📁 Project Structure
 
 ```
 mcp-pixula/
-├── mcp.server/         # MCP Server implementation
-│   ├── Program.cs      # Server entry point and configuration
+├── mcp.server/             # MCP Server implementation
+│   ├── Program.cs          # Server entry point and configuration
 │   └── mcp.server.csproj
-├── mcp.client/         # Interactive console client
-│   ├── Program.cs      # Client with Ollama integration
+├── mcp.client/             # Interactive console client
+│   ├── Program.cs          # Client with Ollama integration
 │   └── mcp.client.csproj
-├── mcp.tools/          # Tools library
-│   ├── FileTool.cs     # File operations
-│   ├── GitTool.cs      # Git repository management
-│   ├── ProcessTool.cs  # Process and build management
-│   ├── SearchTool.cs   # Code search and analysis
-│   ├── ConfigTool.cs   # Configuration management
+├── mcp.tools/              # Tools library
+│   ├── FileTool.cs         # File operations
+│   ├── GitTool.cs          # Git repository management
+│   ├── ProcessTool.cs      # Process and build management
+│   ├── SearchTool.cs       # Code search and analysis
+│   ├── ConfigTool.cs       # Configuration management
 │   └── mcp.tools.csproj
-└── mcp.sln            # Solution file
+├── start-hybrid.bat        # Windows hybrid deployment script
+├── start-mcp-host.bat      # Manual MCP server startup script
+├── docker-compose.hybrid.yml # Hybrid Docker compose (Open WebUI only)
+├── HYBRID_README.md        # Detailed hybrid deployment documentation
+└── mcp.sln                # Solution file
 ```
 
 ## 🛠️ Available MCP Tools
@@ -93,7 +127,9 @@ mcp-pixula/
 ### Prerequisites
 
 - .NET 9.0 SDK
-- Ollama (for the client example)
+- Python 3.8+ (for mcpo)
+- Docker Desktop (for containerized/hybrid deployments)
+- Ollama (optional, for AI integration)
 
 ### Installation & Setup
 
@@ -103,35 +139,23 @@ mcp-pixula/
    cd mcp-pixula
    ```
 
-2. **Restore dependencies:**
+2. **Install Python dependencies:**
    ```bash
-   dotnet restore
+   pip install uv  # For running mcpo
    ```
 
-3. **Build the solution:**
-   ```bash
-   dotnet build
+3. **Start the hybrid deployment:**
+   ```cmd
+   # Windows
+   .\start-hybrid.bat start
    ```
 
-### Running the MCP Server
+### Access Points
 
-The MCP server can be run standalone and connected to via stdio:
-
-```bash
-cd mcp.server
-dotnet run
-```
-
-### Running the Interactive Client
-
-The client provides a console interface with Ollama integration:
-
-```bash
-cd mcp.client
-dotnet run
-```
-
-**Note:** The client is configured to use Ollama with the `llama3.2` model by default. Make sure Ollama is running and the model is available.
+Once running, you can access:
+- **Open WebUI**: http://localhost:3000
+- **MCP API Docs**: http://localhost:8000/docs
+- **MCP Health Check**: http://localhost:8000/health
 
 ## 🏗️ Architecture
 
@@ -216,6 +240,10 @@ The server automatically discovers tools from the `mcp.tools` assembly. To add n
 }
 ```
 
+### Using with Open WebUI
+
+The hybrid deployment automatically configures Open WebUI to connect to the MCP server. Simply navigate to http://localhost:3000 after starting the services.
+
 ### Example Prompts
 
 - "Show me the current git status and recent commits"
@@ -224,6 +252,13 @@ The server automatically discovers tools from the `mcp.tools` assembly. To add n
 - "Get project statistics and show me the largest files"
 - "Run the tests and lint the code"
 - "Find all configuration files and backup the main app settings"
+
+## 🚨 Security Considerations
+
+- **MCP server** runs on your host with full file system access
+- For production use, always enable authentication in Open WebUI
+- Consider using a reverse proxy with proper authentication for remote access
+- The hybrid approach prioritizes functionality over isolation
 
 ## 🤝 Contributing
 
@@ -242,3 +277,4 @@ This project is provided as-is for educational and development purposes.
 - Built using Microsoft's Model Context Protocol implementation
 - Uses Ollama for AI integration
 - UI powered by Spectre.Console for rich terminal experience
+- Open WebUI for web-based interface
